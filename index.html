@@ -1,9 +1,22 @@
-<!DOCTYPE html>
+.task-assignee {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+            padding: 4px 8px;
+            background: #f0f8ff;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .task-assignee.assigned {
+            background: #fff3e0;
+            color: #ef6c00;
+        }<!DOCTYPE html>
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lista Zadań - Supabase</title>
+    <title>Budowa MPDV</title>
     <style>
         * {
             margin: 0;
@@ -274,6 +287,54 @@
             box-shadow: 0 6px 20px rgba(0,0,0,0.3);
         }
 
+        .task-images {
+            margin: 20px 0;
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .image-container {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .image-container img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .remove-image-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(255,0,0,0.8);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .remove-image-btn:hover {
+            background: rgba(255,0,0,1);
+            transform: scale(1.1);
+        }
+
         .task-image {
             margin: 20px 0;
             text-align: center;
@@ -319,6 +380,13 @@
         .upload-label:hover {
             background: #2196f3;
             transform: translateY(-2px);
+        }
+
+        .image-count {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            text-align: center;
         }
 
         .status-indicator {
@@ -451,7 +519,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎯 Lista Zadań z Supabase</h1>
+            <h1>🏗️ Budowa MPDV</h1>
             
             <!-- Panel konfiguracji -->
             <div class="config-panel" id="configPanel">
@@ -761,7 +829,7 @@
             }
         }
 
-        // Zmiana statusu zadania
+        // Zmiana statusu zadania (z przypisaniem użytkownika)
         async function changeTaskStatus(taskId, newStatus) {
             if (!currentUser) {
                 showError('Musisz być zalogowany aby zmieniać status zadań');
@@ -769,12 +837,33 @@
             }
 
             try {
+                // Pobierz aktualne zadanie
+                const { data: currentTask, error: fetchError } = await supabase
+                    .from('tasks')
+                    .select('*')
+                    .eq('id', taskId)
+                    .single();
+
+                if (fetchError) throw fetchError;
+
+                let updateData = {
+                    status: newStatus,
+                    updated_at: new Date().toISOString()
+                };
+
+                // Jeśli zmiana ze statusu "do_zrobienia" na "w_trakcie", przypisz użytkownika
+                if (currentTask.status === 'do_zrobienia' && newStatus === 'w_trakcie') {
+                    updateData.assigned_to = currentUser.id;
+                }
+
+                // Jeśli zmiana z "w_trakcie" na "do_zrobienia", usuń przypisanie
+                if (currentTask.status === 'w_trakcie' && newStatus === 'do_zrobienia') {
+                    updateData.assigned_to = null;
+                }
+
                 const { error } = await supabase
                     .from('tasks')
-                    .update({ 
-                        status: newStatus,
-                        updated_at: new Date().toISOString()
-                    })
+                    .update(updateData)
                     .eq('id', taskId);
 
                 if (error) throw error;
@@ -787,11 +876,11 @@
             }
         }
 
-        // Upload zdjęcia (na razie symulacja)
+        // Upload zdjęcia (teraz obsługuje wiele zdjęć)
         async function handleImageUpload(taskId, event) {
-            const file = event.target.files[0];
+            const files = event.target.files;
             
-            if (!file) return;
+            if (!files.length) return;
             
             if (!currentUser) {
                 showError('Musisz być zalogowany aby dodawać zdjęcia');
@@ -799,26 +888,121 @@
             }
 
             try {
-                // Na razie zapisujemy jako base64 (w prawdziwej aplikacji użyj Supabase Storage)
-                const reader = new FileReader();
-                reader.onload = async function(e) {
-                    const { error } = await supabase
-                        .from('tasks')
-                        .update({ 
-                            image_url: e.target.result,
-                            updated_at: new Date().toISOString()
-                        })
-                        .eq('id', taskId);
+                // Pobierz aktualne zadanie
+                const { data: task, error: fetchError } = await supabase
+                    .from('tasks')
+                    .select('image_url')
+                    .eq('id', taskId)
+                    .single();
 
-                    if (error) throw error;
+                if (fetchError) throw fetchError;
 
-                    showMessage('Zdjęcie dodane! 📷');
-                    loadTasks();
-                };
-                reader.readAsDataURL(file);
+                // Parsuj istniejące zdjęcia
+                let existingImages = [];
+                if (task.image_url) {
+                    try {
+                        existingImages = JSON.parse(task.image_url);
+                        if (!Array.isArray(existingImages)) {
+                            // Jeśli to stary format (pojedyncze zdjęcie), przekonwertuj
+                            existingImages = [task.image_url];
+                        }
+                    } catch {
+                        // Jeśli to nie JSON, to stary format
+                        existingImages = [task.image_url];
+                    }
+                }
+
+                // Dodaj nowe zdjęcia
+                const newImages = [];
+                for (let file of files) {
+                    await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            newImages.push(e.target.result);
+                            resolve();
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                }
+
+                // Połącz stare i nowe zdjęcia
+                const allImages = [...existingImages, ...newImages];
+                
+                // Ograniczenie do maksymalnie 5 zdjęć
+                if (allImages.length > 5) {
+                    showError('Maksymalnie 5 zdjęć na zadanie');
+                    return;
+                }
+
+                const { error } = await supabase
+                    .from('tasks')
+                    .update({ 
+                        image_url: JSON.stringify(allImages),
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', taskId);
+
+                if (error) throw error;
+
+                showMessage(`Dodano ${newImages.length} zdjęć! 📷`);
+                loadTasks();
                 
             } catch (error) {
-                showError('Błąd dodawania zdjęcia: ' + error.message);
+                showError('Błąd dodawania zdjęć: ' + error.message);
+            }
+        }
+
+        // Usuwanie pojedynczego zdjęcia
+        async function removeImage(taskId, imageIndex) {
+            if (!currentUser) {
+                showError('Musisz być zalogowany aby usuwać zdjęcia');
+                return;
+            }
+
+            try {
+                // Pobierz aktualne zadanie
+                const { data: task, error: fetchError } = await supabase
+                    .from('tasks')
+                    .select('image_url')
+                    .eq('id', taskId)
+                    .single();
+
+                if (fetchError) throw fetchError;
+
+                if (!task.image_url) return;
+
+                // Parsuj zdjęcia
+                let images = [];
+                try {
+                    images = JSON.parse(task.image_url);
+                    if (!Array.isArray(images)) {
+                        images = [task.image_url];
+                    }
+                } catch {
+                    images = [task.image_url];
+                }
+
+                // Usuń zdjęcie o podanym indeksie
+                images.splice(imageIndex, 1);
+
+                // Zapisz zaktualizowaną listę
+                const newImageUrl = images.length > 0 ? JSON.stringify(images) : null;
+                
+                const { error } = await supabase
+                    .from('tasks')
+                    .update({ 
+                        image_url: newImageUrl,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', taskId);
+
+                if (error) throw error;
+
+                showMessage('Zdjęcie usunięte! 🗑️');
+                loadTasks();
+                
+            } catch (error) {
+                showError('Błąd usuwania zdjęcia: ' + error.message);
             }
         }
 
@@ -836,7 +1020,13 @@
                 
                 const { data: tasks, error } = await supabase
                     .from('tasks')
-                    .select('*')
+                    .select(`
+                        *,
+                        profiles:assigned_to (
+                            username,
+                            id
+                        )
+                    `)
                     .order('created_at', { ascending: false });
 
                 if (error) throw error;
@@ -857,7 +1047,18 @@
                         </div>
                         
                         <div class="task-header">
-                            <div class="task-title">${task.title}</div>
+                            <div>
+                                <div class="task-title">${task.title}</div>
+                                ${task.assigned_to ? `
+                                    <div class="task-assignee assigned">
+                                        👤 ${task.profiles?.username || task.profiles?.id?.substring(0,8) || 'Nieznany użytkownik'}
+                                    </div>
+                                ` : task.status === 'w_trakcie' ? `
+                                    <div class="task-assignee">
+                                        👤 Nikt nie pracuje
+                                    </div>
+                                ` : ''}
+                            </div>
                             <div class="task-status">
                                 <button 
                                     class="status-btn do_zrobienia ${task.status === 'do_zrobienia' ? 'active' : ''}" 
@@ -880,20 +1081,66 @@
                             </div>
                         </div>
 
-                        ${task.image_url ? `
-                            <div class="task-image">
-                                <img src="${task.image_url}" alt="Zdjęcie zadania" />
-                            </div>
-                        ` : ''}
+                        ${task.image_url ? (() => {
+                            try {
+                                // Spróbuj sparsować jako JSON (nowy format - wiele zdjęć)
+                                const images = JSON.parse(task.image_url);
+                                if (Array.isArray(images)) {
+                                    return `
+                                        <div class="task-images">
+                                            <div class="image-grid">
+                                                ${images.map((img, index) => `
+                                                    <div class="image-container">
+                                                        <img src="${img}" alt="Zdjęcie zadania ${index + 1}" />
+                                                        ${task.status !== 'zrobione' ? `
+                                                            <button class="remove-image-btn" onclick="removeImage(${task.id}, ${index})" title="Usuń zdjęcie">×</button>
+                                                        ` : ''}
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                            <div class="image-count">${images.length}/5 zdjęć</div>
+                                        </div>
+                                    `;
+                                }
+                            } catch (e) {
+                                // Stary format (pojedyncze zdjęcie jako string)
+                                return `
+                                    <div class="task-images">
+                                        <div class="image-grid">
+                                            <div class="image-container">
+                                                <img src="${task.image_url}" alt="Zdjęcie zadania" />
+                                                ${task.status !== 'zrobione' ? `
+                                                    <button class="remove-image-btn" onclick="removeImage(${task.id}, 0)" title="Usuń zdjęcie">×</button>
+                                                ` : ''}
+                                            </div>
+                                        </div>
+                                        <div class="image-count">1/5 zdjęć</div>
+                                    </div>
+                                `;
+                            }
+                        })() : ''}
 
-                        ${task.status !== 'zrobione' ? `
-                            <div class="image-upload">
-                                <input type="file" id="imageInput${task.id}" accept="image/*" onchange="handleImageUpload(${task.id}, event)" />
-                                <label for="imageInput${task.id}" class="upload-label">
-                                    📷 ${task.image_url ? 'Zmień zdjęcie' : 'Dodaj zdjęcie'}
-                                </label>
-                            </div>
-                        ` : ''}
+                        ${task.status !== 'zrobione' ? (() => {
+                            // Policz ile już jest zdjęć
+                            let imageCount = 0;
+                            if (task.image_url) {
+                                try {
+                                    const images = JSON.parse(task.image_url);
+                                    imageCount = Array.isArray(images) ? images.length : 1;
+                                } catch {
+                                    imageCount = 1;
+                                }
+                            }
+                            
+                            return `
+                                <div class="image-upload">
+                                    <input type="file" id="imageInput${task.id}" accept="image/*" multiple onchange="handleImageUpload(${task.id}, event)" />
+                                    <label for="imageInput${task.id}" class="upload-label">
+                                        📷 ${imageCount === 0 ? 'Dodaj zdjęcia' : 'Dodaj więcej zdjęć'} ${imageCount < 5 ? `(${5 - imageCount} pozostało)` : '(maksimum)'}
+                                    </label>
+                                </div>
+                            `;
+                        })() : ''}
                     </div>
                 `).join('');
                 
