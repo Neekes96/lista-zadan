@@ -499,6 +499,10 @@
     <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+        // Konfiguracja Supabase - wpisz swoje klucze tutaj
+        const SUPABASE_URL = 'https://btedfnnphzvgdrbmkslx.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0ZWRmbm5waHp2Z2RyYm1rc2x4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIyNTY2MTAsImV4cCI6MjA2NzgzMjYxMH0.Jl085MECqGFTFkPhwoSQxXBLMiLwQJZgoGaYdtg8WnU';
+
         let supabase = null;
         let currentUser = null;
         let currentProfile = null;
@@ -533,6 +537,12 @@
             const userInfo = document.getElementById('userInfo');
             const adminPanel = document.getElementById('adminPanel');
 
+            // Jeśli klucze są wpisane w kodzie, automatycznie połącz
+            if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'WPISZ_TUTAJ_SWOJ_PROJECT_URL' && !supabase) {
+                autoConnectSupabase();
+                return;
+            }
+
             if (!supabase) {
                 configPanel.style.display = 'block';
                 authPanel.style.display = 'none';
@@ -566,6 +576,27 @@
             }
         }
 
+        // Automatyczne łączenie z Supabase (gdy klucze są w kodzie)
+        async function autoConnectSupabase() {
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                
+                // Sprawdź czy użytkownik jest już zalogowany
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    currentUser = user;
+                    await loadUserProfile();
+                }
+                
+                updateUI();
+                loadTasks();
+                
+            } catch (error) {
+                showError('Błąd automatycznego połączenia: ' + error.message);
+                console.error('Błąd połączenia:', error);
+            }
+        }
+
         // Połączenie z Supabase
         async function connectSupabase() {
             const url = document.getElementById('supabaseUrl').value.trim();
@@ -579,13 +610,9 @@
             try {
                 supabase = window.supabase.createClient(url, key);
                 
-                // Sprawdź połączenie
-                const { data, error } = await supabase.from('tasks').select('*').limit(1);
+                // Najprostszy test połączenia - sprawdź auth
+                const { data: { session } } = await supabase.auth.getSession();
                 
-                if (error) {
-                    throw error;
-                }
-
                 showMessage('Połączono z Supabase! 🎉');
                 
                 // Sprawdź czy użytkownik jest już zalogowany
