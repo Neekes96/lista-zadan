@@ -831,7 +831,7 @@
             }
         }
 
-        // Zmiana statusu zadania (z przypisaniem użytkownika)
+        // Zmiana statusu zadania (bez przypisywania użytkownika)
         async function changeTaskStatus(taskId, newStatus) {
             if (!currentUser) {
                 showError('Musisz być zalogowany aby zmieniać status zadań');
@@ -839,33 +839,12 @@
             }
 
             try {
-                // Pobierz aktualne zadanie
-                const { data: currentTask, error: fetchError } = await supabase
-                    .from('tasks')
-                    .select('*')
-                    .eq('id', taskId)
-                    .single();
-
-                if (fetchError) throw fetchError;
-
-                let updateData = {
-                    status: newStatus,
-                    updated_at: new Date().toISOString()
-                };
-
-                // Jeśli zmiana ze statusu "do_zrobienia" na "w_trakcie", przypisz użytkownika
-                if (currentTask.status === 'do_zrobienia' && newStatus === 'w_trakcie') {
-                    updateData.assigned_to = currentUser.id;
-                }
-
-                // Jeśli zmiana z "w_trakcie" na "do_zrobienia", usuń przypisanie
-                if (currentTask.status === 'w_trakcie' && newStatus === 'do_zrobienia') {
-                    updateData.assigned_to = null;
-                }
-
                 const { error } = await supabase
                     .from('tasks')
-                    .update(updateData)
+                    .update({ 
+                        status: newStatus,
+                        updated_at: new Date().toISOString()
+                    })
                     .eq('id', taskId);
 
                 if (error) throw error;
@@ -1022,13 +1001,7 @@
                 
                 const { data: tasks, error } = await supabase
                     .from('tasks')
-                    .select(`
-                        *,
-                        profiles:assigned_to (
-                            username,
-                            id
-                        )
-                    `)
+                    .select('*')
                     .order('created_at', { ascending: false });
 
                 if (error) throw error;
@@ -1049,18 +1022,7 @@
                         </div>
                         
                         <div class="task-header">
-                            <div>
-                                <div class="task-title">${task.title}</div>
-                                ${task.assigned_to ? `
-                                    <div class="task-assignee assigned">
-                                        👤 ${task.profiles?.username || task.profiles?.id?.substring(0,8) || 'Nieznany użytkownik'}
-                                    </div>
-                                ` : task.status === 'w_trakcie' ? `
-                                    <div class="task-assignee">
-                                        👤 Nikt nie pracuje
-                                    </div>
-                                ` : ''}
-                            </div>
+                            <div class="task-title">${task.title}</div>
                             <div class="task-status">
                                 <button 
                                     class="status-btn do_zrobienia ${task.status === 'do_zrobienia' ? 'active' : ''}" 
