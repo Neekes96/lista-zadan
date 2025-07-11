@@ -580,7 +580,7 @@
                 supabase = window.supabase.createClient(url, key);
                 
                 // Sprawdź połączenie
-                const { data, error } = await supabase.from('tasks').select('count(*)', { count: 'exact' });
+                const { data, error } = await supabase.from('tasks').select('*').limit(1);
                 
                 if (error) {
                     throw error;
