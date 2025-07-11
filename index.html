@@ -831,7 +831,7 @@
             }
         }
 
-        // Zmiana statusu zadania (z przypisaniem użytkownika)
+        // Zmiana statusu zadania (uproszczona)
         async function changeTaskStatus(taskId, newStatus) {
             if (!currentUser) {
                 showError('Musisz być zalogowany aby zmieniać status zadań');
@@ -839,33 +839,12 @@
             }
 
             try {
-                // Pobierz aktualne zadanie
-                const { data: currentTask, error: fetchError } = await supabase
-                    .from('tasks')
-                    .select('*')
-                    .eq('id', taskId)
-                    .single();
-
-                if (fetchError) throw fetchError;
-
-                let updateData = {
-                    status: newStatus,
-                    updated_at: new Date().toISOString()
-                };
-
-                // Jeśli zmiana ze statusu "do_zrobienia" na "w_trakcie", przypisz użytkownika
-                if (currentTask.status === 'do_zrobienia' && newStatus === 'w_trakcie') {
-                    updateData.assigned_to = currentUser.id;
-                }
-
-                // Jeśli zmiana z "w_trakcie" na "do_zrobienia", usuń przypisanie
-                if (currentTask.status === 'w_trakcie' && newStatus === 'do_zrobienia') {
-                    updateData.assigned_to = null;
-                }
-
                 const { error } = await supabase
                     .from('tasks')
-                    .update(updateData)
+                    .update({ 
+                        status: newStatus,
+                        updated_at: new Date().toISOString()
+                    })
                     .eq('id', taskId);
 
                 if (error) throw error;
@@ -1027,36 +1006,12 @@
 
                 if (error) throw error;
 
-                // Pobierz profile użytkowników dla przypisanych zadań
-                const userIds = [...new Set(tasks.filter(task => task.assigned_to).map(task => task.assigned_to))];
-                let userProfiles = new Map();
-                
-                if (userIds.length > 0) {
-                    try {
-                        const { data: profiles } = await supabase
-                            .from('profiles')
-                            .select('id, username')
-                            .in('id', userIds);
-                        
-                        if (profiles) {
-                            profiles.forEach(profile => {
-                                userProfiles.set(profile.id, profile);
-                            });
-                        }
-                    } catch (profileError) {
-                        console.log('Nie udało się pobrać profili użytkowników:', profileError);
-                    }
-                }
-
                 if (!tasks || tasks.length === 0) {
                     tasksList.innerHTML = '<div class="no-tasks">Brak zadań do wyświetlenia</div>';
                     return;
                 }
 
-                tasksList.innerHTML = tasks.map(task => {
-                    const userProfile = userProfiles.get(task.assigned_to);
-                    
-                    return `
+                tasksList.innerHTML = tasks.map(task => `
                     <div class="task-card ${task.status}">
                         <div class="disabled-overlay">
                             ✅ Zadanie ukończone
@@ -1067,18 +1022,7 @@
                         </div>
                         
                         <div class="task-header">
-                            <div>
-                                <div class="task-title">${task.title}</div>
-                                ${task.assigned_to ? `
-                                    <div class="task-assignee assigned">
-                                        👤 ${userProfile?.username || task.assigned_to.substring(0,8) + '...'}
-                                    </div>
-                                ` : task.status === 'w_trakcie' ? `
-                                    <div class="task-assignee">
-                                        👤 Nikt nie pracuje
-                                    </div>
-                                ` : ''}
-                            </div>
+                            <div class="task-title">${task.title}</div>
                             <div class="task-status">
                                 <button 
                                     class="status-btn do_zrobienia ${task.status === 'do_zrobienia' ? 'active' : ''}" 
@@ -1157,6 +1101,12 @@
                                     <input type="file" id="imageInput${task.id}" accept="image/*" multiple onchange="handleImageUpload(${task.id}, event)" />
                                     <label for="imageInput${task.id}" class="upload-label">
                                         📷 ${imageCount === 0 ? 'Dodaj zdjęcia' : 'Dodaj więcej zdjęć'} ${imageCount < 5 ? `(${5 - imageCount} pozostało)` : '(maksimum)'}
+                                    </label>
+                                </div>
+                            `;
+                        })() : ''}
+                    </div>
+                `).join(''); `(${5 - imageCount} pozostało)` : '(maksimum)'}
                                     </label>
                                 </div>
                             `;
