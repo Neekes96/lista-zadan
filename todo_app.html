@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista Zadań - Supabase</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .config-panel {
+            background: rgba(255,255,255,0.2);
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .config-panel h3 {
+            margin-bottom: 15px;
+            color: #fff;
+        }
+
+        .config-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .config-form input {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            background: rgba(255,255,255,0.9);
+        }
+
+        .config-form button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: #ff6b6b;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .config-form button:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+        }
+
+        .auth-panel {
+            background: rgba(255,255,255,0.2);
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+
+        .auth-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .auth-controls input {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            background: rgba(255,255,255,0.9);
+        }
+
+        .auth-controls button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: #4facfe;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .auth-controls button:hover {
+            background: #2196f3;
+            transform: translateY(-2px);
+        }
+
+        .admin-panel {
+            background: rgba(255,255,255,0.2);
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+
+        .admin-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .admin-controls input {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            background: rgba(255,255,255,0.9);
+        }
+
+        .admin-controls button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: #ff6b6b;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .admin-controls button:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+        }
+
+        .user-info {
+            background: rgba(255,255,255,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .tasks-container {
+            padding: 30px;
+        }
+
+        .task-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border-left: 5px solid #ddd;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .task-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(0,0,0,0.15);
+        }
+
+        .task-card.do_zrobienia {
+            border-left-color: #ff6b6b;
+        }
+
+        .task-card.w_trakcie {
+            border-left-color: #ffa726;
+        }
+
+        .task-card.zrobione {
+            border-left-color: #66bb6a;
+            opacity: 0.8;
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+
+        .task-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            flex: 1;
+            padding-right: 10px;
+        }
+
+        .task-status {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .status-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .status-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .status-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+            transform: none;
+        }
+
+        .status-btn.do_zrobienia {
+            background: #ff6b6b;
+        }
+
+        .status-btn.w_trakcie {
+            background: #ffa726;
+        }
+
+        .status-btn.zrobione {
+            background: #66bb6a;
+        }
+
+        .status-btn.active {
+            transform: scale(1.2);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .task-image {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .task-image img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .image-upload {
+            margin-top: 20px;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            text-align: center;
+            background: #f9f9f9;
+            transition: all 0.3s ease;
+        }
+
+        .image-upload:hover {
+            border-color: #4facfe;
+            background: #f0f8ff;
+        }
+
+        .image-upload input[type="file"] {
+            display: none;
+        }
+
+        .upload-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #4facfe;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .upload-label:hover {
+            background: #2196f3;
+            transform: translateY(-2px);
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            z-index: 2;
+            max-width: 80px;
+            text-align: center;
+        }
+
+        .status-indicator.do_zrobienia {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .status-indicator.w_trakcie {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        .status-indicator.zrobione {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+
+        .no-tasks {
+            text-align: center;
+            color: #666;
+            font-size: 1.2em;
+            margin: 50px 0;
+        }
+
+        .disabled-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            color: #666;
+            font-weight: bold;
+        }
+
+        .task-card.zrobione .disabled-overlay {
+            display: flex;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #f44336;
+        }
+
+        .success-message {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #4caf50;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .logout-btn {
+            background: rgba(255,255,255,0.3);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.5);
+        }
+
+        @media (max-width: 768px) {
+            .auth-controls, .admin-controls {
+                flex-direction: column;
+            }
+            
+            .auth-controls input, .admin-controls input {
+                min-width: 100%;
+            }
+            
+            .task-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .task-status {
+                margin-top: 10px;
+                align-self: flex-start;
+            }
+            
+            .status-indicator {
+                position: static;
+                margin-bottom: 10px;
+                display: inline-block;
+            }
+            
+            .task-title {
+                padding-right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Lista Zadań z Supabase</h1>
+            
+            <!-- Panel konfiguracji -->
+            <div class="config-panel" id="configPanel">
+                <h3>⚙️ Konfiguracja Supabase</h3>
+                <div class="config-form">
+                    <input type="text" id="supabaseUrl" placeholder="URL Supabase (https://abc123.supabase.co)" />
+                    <input type="password" id="supabaseKey" placeholder="Anon Public Key" />
+                    <button onclick="connectSupabase()">Połącz z Supabase</button>
+                </div>
+            </div>
+
+            <!-- Panel logowania -->
+            <div class="auth-panel" id="authPanel">
+                <h3>🔐 Logowanie</h3>
+                <div class="auth-controls">
+                    <input type="email" id="userEmail" placeholder="Email" />
+                    <input type="password" id="userPassword" placeholder="Hasło" />
+                    <button onclick="signIn()">Zaloguj</button>
+                    <button onclick="signUp()">Zarejestruj</button>
+                </div>
+            </div>
+
+            <!-- Informacje o użytkowniku -->
+            <div class="user-info" id="userInfo">
+                <div id="userDetails"></div>
+                <button class="logout-btn" onclick="signOut()">Wyloguj</button>
+            </div>
+
+            <!-- Panel administratora -->
+            <div class="admin-panel" id="adminPanel">
+                <h3>👑 Panel Administratora</h3>
+                <div class="admin-controls">
+                    <input type="text" id="newTaskTitle" placeholder="Tytuł nowego zadania..." />
+                    <button onclick="addTask()">Dodaj Zadanie</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tasks-container">
+            <div id="messages"></div>
+            <div id="tasksList" class="loading">🔄 Ładowanie...</div>
+        </div>
+    </div>
+
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        let supabase = null;
+        let currentUser = null;
+        let currentProfile = null;
+
+        // Mapowanie statusów na opisy
+        const statusLabels = {
+            'do_zrobienia': 'Do zrobienia',
+            'w_trakcie': 'W trakcie',
+            'zrobione': 'Zrobione'
+        };
+
+        // Funkcje pomocnicze
+        function showMessage(message, type = 'success') {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `${type}-message`;
+            messageDiv.textContent = message;
+            messagesDiv.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+
+        function showError(message) {
+            showMessage(message, 'error');
+        }
+
+        function updateUI() {
+            const configPanel = document.getElementById('configPanel');
+            const authPanel = document.getElementById('authPanel');
+            const userInfo = document.getElementById('userInfo');
+            const adminPanel = document.getElementById('adminPanel');
+
+            if (!supabase) {
+                configPanel.style.display = 'block';
+                authPanel.style.display = 'none';
+                userInfo.style.display = 'none';
+                adminPanel.style.display = 'none';
+                return;
+            }
+
+            configPanel.style.display = 'none';
+
+            if (!currentUser) {
+                authPanel.style.display = 'block';
+                userInfo.style.display = 'none';
+                adminPanel.style.display = 'none';
+            } else {
+                authPanel.style.display = 'none';
+                userInfo.style.display = 'block';
+                
+                const userDetails = document.getElementById('userDetails');
+                userDetails.innerHTML = `
+                    <div>👤 <strong>${currentUser.email}</strong></div>
+                    <div>🎭 Rola: <strong>${currentProfile?.role || 'user'}</strong></div>
+                `;
+
+                // Pokaż panel admina tylko dla adminów
+                if (currentProfile?.role === 'admin') {
+                    adminPanel.style.display = 'block';
+                } else {
+                    adminPanel.style.display = 'none';
+                }
+            }
+        }
+
+        // Połączenie z Supabase
+        async function connectSupabase() {
+            const url = document.getElementById('supabaseUrl').value.trim();
+            const key = document.getElementById('supabaseKey').value.trim();
+
+            if (!url || !key) {
+                showError('Proszę podać URL i klucz API');
+                return;
+            }
+
+            try {
+                supabase = window.supabase.createClient(url, key);
+                
+                // Sprawdź połączenie
+                const { data, error } = await supabase.from('tasks').select('count(*)', { count: 'exact' });
+                
+                if (error) {
+                    throw error;
+                }
+
+                showMessage('Połączono z Supabase! 🎉');
+                
+                // Sprawdź czy użytkownik jest już zalogowany
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    currentUser = user;
+                    await loadUserProfile();
+                }
+                
+                updateUI();
+                loadTasks();
+                
+            } catch (error) {
+                showError('Błąd połączenia: ' + error.message);
+                console.error('Błąd połączenia:', error);
+            }
+        }
+
+        // Rejestracja
+        async function signUp() {
+            const email = document.getElementById('userEmail').value.trim();
+            const password = document.getElementById('userPassword').value.trim();
+
+            if (!email || !password) {
+                showError('Proszę podać email i hasło');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.signUp({
+                    email: email,
+                    password: password
+                });
+
+                if (error) throw error;
+
+                showMessage('Konto utworzone! Sprawdź email w celu potwierdzenia.');
+                document.getElementById('userEmail').value = '';
+                document.getElementById('userPassword').value = '';
+                
+            } catch (error) {
+                showError('Błąd rejestracji: ' + error.message);
+            }
+        }
+
+        // Logowanie
+        async function signIn() {
+            const email = document.getElementById('userEmail').value.trim();
+            const password = document.getElementById('userPassword').value.trim();
+
+            if (!email || !password) {
+                showError('Proszę podać email i hasło');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) throw error;
+
+                currentUser = data.user;
+                await loadUserProfile();
+                
+                showMessage('Zalogowano pomyślnie! 🎉');
+                document.getElementById('userEmail').value = '';
+                document.getElementById('userPassword').value = '';
+                
+                updateUI();
+                loadTasks();
+                
+            } catch (error) {
+                showError('Błąd logowania: ' + error.message);
+            }
+        }
+
+        // Wylogowanie
+        async function signOut() {
+            try {
+                await supabase.auth.signOut();
+                currentUser = null;
+                currentProfile = null;
+                showMessage('Wylogowano');
+                updateUI();
+                loadTasks();
+            } catch (error) {
+                showError('Błąd wylogowania: ' + error.message);
+            }
+        }
+
+        // Ładowanie profilu użytkownika
+        async function loadUserProfile() {
+            if (!currentUser) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', currentUser.id)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') {
+                    throw error;
+                }
+
+                currentProfile = data;
+            } catch (error) {
+                console.error('Błąd ładowania profilu:', error);
+            }
+        }
+
+        // Dodawanie zadania (tylko admin)
+        async function addTask() {
+            if (!currentUser || currentProfile?.role !== 'admin') {
+                showError('Tylko administratorzy mogą dodawać zadania');
+                return;
+            }
+
+            const title = document.getElementById('newTaskTitle').value.trim();
+            
+            if (!title) {
+                showError('Proszę wprowadzić tytuł zadania');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('tasks')
+                    .insert([
+                        {
+                            title: title,
+                            status: 'do_zrobienia'
+                        }
+                    ]);
+
+                if (error) throw error;
+
+                showMessage('Zadanie dodane pomyślnie! 🎉');
+                document.getElementById('newTaskTitle').value = '';
+                loadTasks();
+                
+            } catch (error) {
+                showError('Błąd dodawania zadania: ' + error.message);
+            }
+        }
+
+        // Zmiana statusu zadania
+        async function changeTaskStatus(taskId, newStatus) {
+            if (!currentUser) {
+                showError('Musisz być zalogowany aby zmieniać status zadań');
+                return;
+            }
+
+            try {
+                const { error } = await supabase
+                    .from('tasks')
+                    .update({ 
+                        status: newStatus,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', taskId);
+
+                if (error) throw error;
+
+                showMessage('Status zadania zmieniony! ✅');
+                loadTasks();
+                
+            } catch (error) {
+                showError('Błąd zmiany statusu: ' + error.message);
+            }
+        }
+
+        // Upload zdjęcia (na razie symulacja)
+        async function handleImageUpload(taskId, event) {
+            const file = event.target.files[0];
+            
+            if (!file) return;
+            
+            if (!currentUser) {
+                showError('Musisz być zalogowany aby dodawać zdjęcia');
+                return;
+            }
+
+            try {
+                // Na razie zapisujemy jako base64 (w prawdziwej aplikacji użyj Supabase Storage)
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    const { error } = await supabase
+                        .from('tasks')
+                        .update({ 
+                            image_url: e.target.result,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', taskId);
+
+                    if (error) throw error;
+
+                    showMessage('Zdjęcie dodane! 📷');
+                    loadTasks();
+                };
+                reader.readAsDataURL(file);
+                
+            } catch (error) {
+                showError('Błąd dodawania zdjęcia: ' + error.message);
+            }
+        }
+
+        // Ładowanie zadań
+        async function loadTasks() {
+            const tasksList = document.getElementById('tasksList');
+            
+            if (!supabase) {
+                tasksList.innerHTML = '<div class="no-tasks">Najpierw skonfiguruj połączenie z Supabase</div>';
+                return;
+            }
+
+            try {
+                tasksList.innerHTML = '<div class="loading">🔄 Ładowanie zadań...</div>';
+                
+                const { data: tasks, error } = await supabase
+                    .from('tasks')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!tasks || tasks.length === 0) {
+                    tasksList.innerHTML = '<div class="no-tasks">Brak zadań do wyświetlenia</div>';
+                    return;
+                }
+
+                tasksList.innerHTML = tasks.map(task => `
+                    <div class="task-card ${task.status}">
+                        <div class="disabled-overlay">
+                            ✅ Zadanie ukończone
+                        </div>
+                        
+                        <div class="status-indicator ${task.status}">
+                            ${statusLabels[task.status]}
+                        </div>
+                        
+                        <div class="task-header">
+                            <div class="task-title">${task.title}</div>
+                            <div class="task-status">
+                                <button 
+                                    class="status-btn do_zrobienia ${task.status === 'do_zrobienia' ? 'active' : ''}" 
+                                    onclick="changeTaskStatus(${task.id}, 'do_zrobienia')"
+                                    ${task.status === 'zrobione' ? 'disabled' : ''}
+                                    title="Do zrobienia">
+                                </button>
+                                <button 
+                                    class="status-btn w_trakcie ${task.status === 'w_trakcie' ? 'active' : ''}" 
+                                    onclick="changeTaskStatus(${task.id}, 'w_trakcie')"
+                                    ${task.status === 'zrobione' ? 'disabled' : ''}
+                                    title="W trakcie">
+                                </button>
+                                <button 
+                                    class="status-btn zrobione ${task.status === 'zrobione' ? 'active' : ''}" 
+                                    onclick="changeTaskStatus(${task.id}, 'zrobione')"
+                                    ${task.status === 'zrobione' ? 'disabled' : ''}
+                                    title="Zrobione">
+                                </button>
+                            </div>
+                        </div>
+
+                        ${task.image_url ? `
+                            <div class="task-image">
+                                <img src="${task.image_url}" alt="Zdjęcie zadania" />
+                            </div>
+                        ` : ''}
+
+                        ${task.status !== 'zrobione' ? `
+                            <div class="image-upload">
+                                <input type="file" id="imageInput${task.id}" accept="image/*" onchange="handleImageUpload(${task.id}, event)" />
+                                <label for="imageInput${task.id}" class="upload-label">
+                                    📷 ${task.image_url ? 'Zmień zdjęcie' : 'Dodaj zdjęcie'}
+                                </label>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                showError('Błąd ładowania zadań: ' + error.message);
+                tasksList.innerHTML = '<div class="error-message">Nie udało się załadować zadań</div>';
+            }
+        }
+
+        // Inicjalizacja
+        document.addEventListener('DOMContentLoaded', function() {
+            updateUI();
+            loadTasks();
+        });
+
+        // Obsługa klawisza Enter
+        document.getElementById('newTaskTitle')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addTask();
+            }
+        });
+
+        document.getElementById('userEmail')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                signIn();
+            }
+        });
+
+        document.getElementById('userPassword')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                signIn();
+            }
+        });
+    </script>
+</body>
+</html>
